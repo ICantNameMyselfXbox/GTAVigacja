@@ -102,8 +102,11 @@
     }
 
     function clearMap() {
-      // Usuń tylko markery z tablicy (czyli NIE startMarker)
-      markers.forEach(marker => marker.remove());
+      markers.forEach(marker => {
+        if (marker !== startMarker) {
+          marker.remove();
+        }
+      });
       markers.length = 0;
 
       if (map.getLayer('route')) map.removeLayer('route');
