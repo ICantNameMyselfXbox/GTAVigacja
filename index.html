@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
   <meta charset="utf-8" />
   <title>GTAVigacja</title>
@@ -9,6 +9,12 @@
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .arrow-marker {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      transition: transform 0.1s ease-out; /* Płynny obrót */
+    }
   </style>
 </head>
 <body>
@@ -17,7 +23,6 @@
 
   <script>
     const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
-
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
@@ -34,23 +39,17 @@
     const markers = [];
     let userOrientation = 0;
 
-    // Ustawienie dystansu, przy którym ponownie wyznaczamy trasę
-    const RECONNECTION_DISTANCE = 50; // w metrach
+    const RECONNECTION_DISTANCE = 50;
 
     map.on('load', () => {
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
           position => {
             start = [position.coords.longitude, position.coords.latitude];
-
             if (!startMarker) {
               const el = document.createElement('img');
               el.src = 'start.png';
-              el.style.width = '32px';
-              el.style.height = '32px';
-              el.style.objectFit = 'contain';
-              el.style.transformOrigin = 'center'; // Obrót wokół środka
-
+              el.className = 'arrow-marker'; // Zmieniamy klasę na arrow-marker
               startMarker = new maplibregl.Marker({ element: el })
                 .setLngLat(start)
                 .addTo(map);
@@ -58,22 +57,15 @@
             } else {
               startMarker.setLngLat(start);
             }
-
-            // Skracanie trasy, jeżeli użytkownik się oddalił
             if (fullRouteCoords && map.getSource('route')) {
               const dist = calculateDistanceToRoute(start, fullRouteCoords);
-
-              // Jeżeli użytkownik oddalił się od trasy o więcej niż ustawiona odległość
               if (dist > RECONNECTION_DISTANCE) {
                 getRoute(start, end);
               } else {
                 const trimmed = trimRouteToCurrentPosition(start, fullRouteCoords);
                 map.getSource('route').setData({
                   type: 'Feature',
-                  geometry: {
-                    type: 'LineString',
-                    coordinates: trimmed
-                  }
+                  geometry: { type: 'LineString', coordinates: trimmed }
                 });
               }
             }
@@ -92,12 +84,11 @@
         alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
       }
 
-      // Obsługa orientacji urządzenia
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
-            // Zmieniamy orientację na wartość bardziej pasującą do mapy
-            userOrientation = (event.alpha + 180) % 360; // Zmiana obrotu na odpowiedni kierunek (180 stopni)
+            // Prawidłowy obrót urządzenia: normalizujemy kąt, aby strzałka obracała się poprawnie
+            userOrientation = event.alpha;
             updateStartMarkerOrientation();
           }
         });
@@ -106,7 +97,6 @@
 
     map.on('click', function(e) {
       const coords = [e.lngLat.lng, e.lngLat.lat];
-
       if (!start) {
         alert("Poczekaj na załadowanie lokalizacji użytkownika.");
         return;
@@ -130,7 +120,6 @@
       el.style.width = '32px';
       el.style.height = '32px';
       el.style.objectFit = 'contain';
-
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat(coords)
         .addTo(map);
@@ -144,55 +133,37 @@
         }
       });
       markers.length = 0;
-
       if (map.getLayer('route')) map.removeLayer('route');
       if (map.getSource('route')) map.removeSource('route');
-
       fullRouteCoords = null;
     }
 
     function getRoute(start, end) {
       fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': ORS_API_KEY
-        },
-        body: JSON.stringify({
-          coordinates: [start, end]
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+        body: JSON.stringify({ coordinates: [start, end] })
       })
       .then(res => {
-        if (!res.ok) {
-          throw new Error(`Błąd ${res.status}: ${res.statusText}`);
-        }
+        if (!res.ok) { throw new Error(`Błąd ${res.status}: ${res.statusText}`); }
         return res.json();
       })
       .then(data => {
         fullRouteCoords = data.features[0].geometry.coordinates;
-
         if (map.getLayer('route')) map.removeLayer('route');
         if (map.getSource('route')) map.removeSource('route');
-
         map.addSource('route', {
           type: 'geojson',
           data: {
             type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: fullRouteCoords
-            }
+            geometry: { type: 'LineString', coordinates: fullRouteCoords }
           }
         });
-
         map.addLayer({
           id: 'route',
           type: 'line',
           source: 'route',
-          paint: {
-            'line-color': '#a149ed',
-            'line-width': 8
-          }
+          paint: { 'line-color': '#a149ed', 'line-width': 8 }
         });
       })
       .catch(err => {
@@ -203,16 +174,15 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker) {
-        // Obracamy tylko obrazek strzałki wokół środka, bez zmiany pozycji
         const el = startMarker.getElement();
-        el.style.transform = `rotate(${userOrientation}deg)`;
+        // Strzałka będzie obracała się o odpowiedni kąt (przywracamy kąt w zależności od orientacji urządzenia)
+        el.style.transform = `rotate(${360 - userOrientation}deg)`; // Obracamy o kąt urządzenia (w lewo)
       }
     }
 
     function trimRouteToCurrentPosition(currentPos, coords) {
       let minDist = Infinity;
       let closestIndex = 0;
-
       coords.forEach((coord, index) => {
         const dx = coord[0] - currentPos[0];
         const dy = coord[1] - currentPos[1];
@@ -222,24 +192,20 @@
           closestIndex = index;
         }
       });
-
       return coords.slice(closestIndex);
     }
 
-    // Funkcja do obliczania odległości między punktem a trasą
     function calculateDistanceToRoute(currentPos, coords) {
       let minDist = Infinity;
-
       coords.forEach(coord => {
         const dx = coord[0] - currentPos[0];
         const dy = coord[1] - currentPos[1];
-        const dist = Math.sqrt(dx * dx + dy * dy); // Euklidesowa odległość
+        const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < minDist) {
           minDist = dist;
         }
       });
-
-      return minDist * 100000; // Konwersja na metry
+      return minDist * 100000;
     }
   </script>
 </body>
