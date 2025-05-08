@@ -9,11 +9,21 @@
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    #north-indicator {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      transform-origin: center center;
+      transition: top 0.05s, left 0.05s, transform 0.05s;
+      pointer-events: none;
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <img src="logo.png" style="position:absolute; bottom:10px; left:10px; width:200px;" />
+  <img id="north-indicator" src="north.png" />
 
   <script>
     const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
@@ -35,6 +45,7 @@
     let userPosition = null;
 
     const RECONNECTION_DISTANCE = 50;
+    let endSet = false; // kontrola kliknięć
 
     map.on('load', () => {
       if (navigator.geolocation) {
@@ -90,25 +101,61 @@
           }
         });
       }
+
+      updateFloatingNorthIcon();
     });
 
-    map.on('click', function (e) {
+    map.on('click', function(e) {
+      const coords = [e.lngLat.lng, e.lngLat.lat];
       if (!userPosition) {
         alert("Poczekaj na załadowanie lokalizacji użytkownika.");
         return;
       }
 
-      if (!end) {
-        // Pierwsze kliknięcie – ustawienie punktu docelowego
-        end = [e.lngLat.lng, e.lngLat.lat];
+      if (!endSet) {
+        end = coords;
         addMarker(end, 'end.png');
         getRoute(userPosition, end);
+        endSet = true;
       } else {
-        // Drugie kliknięcie – usunięcie punktu docelowego i trasy
         clearMap();
         end = null;
+        endSet = false;
       }
     });
+
+    map.on('rotate', updateFloatingNorthIcon);
+    map.on('move', updateFloatingNorthIcon);
+    map.on('load', updateFloatingNorthIcon);
+
+    function updateFloatingNorthIcon() {
+      const icon = document.getElementById('north-indicator');
+      if (!icon) return;
+
+      const bearing = map.getBearing();
+      const angleRad = (-bearing) * Math.PI / 180;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      const dx = Math.sin(angleRad);
+      const dy = -Math.cos(angleRad);
+      const margin = 20;
+
+      let x = w / 2;
+      let y = h / 2;
+
+      const scale = Math.min(
+        Math.abs((w / 2 - margin) / dx || Infinity),
+        Math.abs((h / 2 - margin) / dy || Infinity)
+      );
+
+      x += dx * scale;
+      y += dy * scale;
+
+      icon.style.left = `${x - 20}px`;
+      icon.style.top = `${y - 20}px`;
+      icon.style.transform = `rotate(${-bearing}deg)`;
+    }
 
     function addMarker(coords, iconFile) {
       const el = document.createElement('img');
