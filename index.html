@@ -129,33 +129,35 @@
     map.on('load', updateFloatingNorthIcon);
 
     function updateFloatingNorthIcon() {
-      const icon = document.getElementById('north-indicator');
-      if (!icon) return;
+  const icon = document.getElementById('north-indicator');
+  if (!icon) return;
 
-      const bearing = map.getBearing();
-      const angleRad = (-bearing) * Math.PI / 180;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
+  const bearing = map.getBearing();
+  const angleRad = (-bearing) * Math.PI / 180;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-      const dx = Math.sin(angleRad);
-      const dy = -Math.cos(angleRad);
-      const margin = 20;
+  const dx = Math.sin(angleRad);
+  const dy = -Math.cos(angleRad);
+  const margin = 20;
 
-      let x = w / 2;
-      let y = h / 2;
+  let x = w / 2;
+  let y = h / 2;
 
-      const scale = Math.min(
-        Math.abs((w / 2 - margin) / dx || Infinity),
-        Math.abs((h / 2 - margin) / dy || Infinity)
-      );
+  const scale = Math.min(
+    Math.abs((w / 2 - margin) / dx || Infinity),
+    Math.abs((h / 2 - margin) / dy || Infinity)
+  );
 
-      x += dx * scale;
-      y += dy * scale;
+  x += dx * scale;
+  y += dy * scale;
 
-      icon.style.left = `${x - 20}px`;
-      icon.style.top = `${y - 20}px`;
-      icon.style.transform = `rotate(${-bearing}deg)`;
-    }
+  icon.style.left = `${x - 20}px`;
+  icon.style.top = `${y - 20}px`;
+
+  // Usuń obrót — ikona zawsze wskazuje w górę
+  icon.style.transform = 'rotate(0deg)';
+}
 
     function addMarker(coords, iconFile) {
       const el = document.createElement('img');
