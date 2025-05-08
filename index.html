@@ -25,7 +25,7 @@
 
   <script>
     const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
-    const map = new maplibregl.Map({
+    const map = new maplibre-gl.Map({
       container: 'map',
       style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
       center: [51.11, 15.58],
@@ -95,7 +95,7 @@
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
             // Odwracamy wartość kąta, aby mapa była zgodna z kierunkiem urządzenia
-            userOrientation = 360 - event.alpha; // Odwrócenie kąta
+            userOrientation = (360 - event.alpha + 45) % 360; // Dodanie 45 stopni obrotu w lewo
             updateStartMarkerOrientation();
             if (userPosition) {
               map.easeTo({
