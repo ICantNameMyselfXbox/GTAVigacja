@@ -32,6 +32,7 @@
     let startMarker = null;
     let fullRouteCoords = null;
     const markers = [];
+    let userOrientation = 0;
 
     // Ustawienie dystansu, przy którym ponownie wyznaczamy trasę
     const RECONNECTION_DISTANCE = 50; // w metrach
@@ -88,6 +89,16 @@
         );
       } else {
         alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
+      }
+
+      // Obsługa orientacji urządzenia
+      if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', event => {
+          if (event.alpha !== null) {
+            userOrientation = event.alpha;
+            updateStartMarkerOrientation();
+          }
+        });
       }
     });
 
@@ -186,6 +197,12 @@
         console.error('Błąd wyznaczania trasy:', err);
         alert('Błąd podczas pobierania trasy.');
       });
+    }
+
+    function updateStartMarkerOrientation() {
+      if (startMarker) {
+        startMarker.getElement().style.transform = `rotate(${userOrientation}deg)`;
+      }
     }
 
     function trimRouteToCurrentPosition(currentPos, coords) {
