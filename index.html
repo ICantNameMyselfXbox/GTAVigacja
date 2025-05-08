@@ -47,7 +47,7 @@
               el.style.width = '32px';
               el.style.height = '32px';
               el.style.objectFit = 'contain';
-              el.style.transition = 'transform 0.1s ease-out'; // Animacja obrotu
+              el.style.transition = 'transform 0.1s ease-out';
               startMarker = new maplibregl.Marker({ element: el })
                 .setLngLat(userPosition)
                 .addTo(map);
@@ -85,7 +85,6 @@
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
-            // Prawidłowy obrót urządzenia: normalizujemy kąt, aby strzałka obracała się poprawnie
             userOrientation = event.alpha;
             updateStartMarkerOrientation();
           }
@@ -93,23 +92,23 @@
       }
     });
 
-   map.on('click', function (e) {
-  if (!userPosition) {
-    alert("Poczekaj na załadowanie lokalizacji użytkownika.");
-    return;
-  }
+    map.on('click', function (e) {
+      if (!userPosition) {
+        alert("Poczekaj na załadowanie lokalizacji użytkownika.");
+        return;
+      }
 
-  if (!end) {
-    // Pierwsze kliknięcie – ustawienie punktu docelowego
-    end = [e.lngLat.lng, e.lngLat.lat];
-    addMarker(end, 'end.png');
-    getRoute(userPosition, end);
-  } else {
-    // Drugie kliknięcie – usunięcie punktu docelowego
-    clearMap();
-    end = null;
-  }
-});
+      if (!end) {
+        // Pierwsze kliknięcie – ustawienie punktu docelowego
+        end = [e.lngLat.lng, e.lngLat.lat];
+        addMarker(end, 'end.png');
+        getRoute(userPosition, end);
+      } else {
+        // Drugie kliknięcie – usunięcie punktu docelowego i trasy
+        clearMap();
+        end = null;
+      }
+    });
 
     function addMarker(coords, iconFile) {
       const el = document.createElement('img');
@@ -171,9 +170,6 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker && userPosition) {
-        // Obracamy marker w zależności od orientacji urządzenia
-        // Jeśli obracasz się w prawo (zgodnie z ruchem wskazówek zegara),
-        // zmieniamy kierunek obrotu (odwracamy kąt)
         startMarker.setRotation(-userOrientation);
       }
     }
