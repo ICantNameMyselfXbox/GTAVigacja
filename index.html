@@ -93,24 +93,23 @@
       }
     });
 
-    map.on('click', function(e) {
-      const coords = [e.lngLat.lng, e.lngLat.lat];
-      if (!userPosition) {
-        alert("Poczekaj na załadowanie lokalizacji użytkownika.");
-        return;
-      }
+   map.on('click', function (e) {
+  if (!userPosition) {
+    alert("Poczekaj na załadowanie lokalizacji użytkownika.");
+    return;
+  }
 
-      if (!end) {
-        end = coords;
-        addMarker(end, 'end.png');
-        getRoute(userPosition, end);
-      } else {
-        clearMap();
-        end = coords;
-        addMarker(end, 'end.png');
-        getRoute(userPosition, end);
-      }
-    });
+  if (!end) {
+    // Pierwsze kliknięcie – ustawienie punktu docelowego
+    end = [e.lngLat.lng, e.lngLat.lat];
+    addMarker(end, 'end.png');
+    getRoute(userPosition, end);
+  } else {
+    // Drugie kliknięcie – usunięcie punktu docelowego
+    clearMap();
+    end = null;
+  }
+});
 
     function addMarker(coords, iconFile) {
       const el = document.createElement('img');
