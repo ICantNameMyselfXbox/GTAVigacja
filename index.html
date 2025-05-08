@@ -30,16 +30,40 @@
     let start = null;
     let end = null;
     const markers = [];
+    let userMarker = null;
 
     map.on('load', () => {
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(position => {
-          start = [position.coords.longitude, position.coords.latitude];
-          addMarker(start, 'start.png');  // Użyjemy 'start.png' jako ikony startowej
-          map.setCenter(start);
+        navigator.geolocation.watchPosition(position => {
+          const lng = position.coords.longitude;
+          const lat = position.coords.latitude;
+          const heading = position.coords.heading;
+
+          start = [lng, lat];
+
+          if (!userMarker) {
+            const el = document.createElement('img');
+            el.src = 'start.png';
+            el.style.width = '32px';
+            el.style.height = '32px';
+            el.style.objectFit = 'contain';
+            el.style.transformOrigin = 'center';
+
+            userMarker = new maplibregl.Marker({ element: el }).setLngLat(start).addTo(map);
+            map.setCenter(start);
+          } else {
+            userMarker.setLngLat(start);
+            if (!isNaN(heading)) {
+              userMarker.getElement().style.transform = `rotate(${heading}deg)`;
+            }
+          }
         }, error => {
           alert('Nie udało się pobrać lokalizacji użytkownika.');
           console.error(error);
+        }, {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 10000
         });
       } else {
         alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
@@ -56,13 +80,13 @@
 
       if (!end) {
         end = coords;
-        addMarker(end, 'end.png');  // Użyjemy 'end.png' jako ikony docelowej
+        addMarker(end, 'end.png');
         getRoute(start, end);
       } else {
         clearMap();
         end = coords;
-        addMarker(start, 'start.png');  // Startowy marker
-        addMarker(end, 'end.png');  // Docelowy marker
+        if (userMarker) addMarker(start, 'start.png'); // opcjonalny powtórzony znacznik startu
+        addMarker(end, 'end.png');
         getRoute(start, end);
       }
     });
@@ -87,47 +111,46 @@
     }
 
     function getRoute(start, end) {
-  fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': ORS_API_KEY
-    },
-    body: JSON.stringify({
-      coordinates: [start, end]
-    })
-  })
-  .then(res => {
-    if (!res.ok) {
-      throw new Error(`Błąd ${res.status}: ${res.statusText}`);
+      fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': ORS_API_KEY
+        },
+        body: JSON.stringify({
+          coordinates: [start, end]
+        })
+      })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Błąd ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (map.getLayer('route')) map.removeLayer('route');
+        if (map.getSource('route')) map.removeSource('route');
+
+        map.addSource('route', {
+          type: 'geojson',
+          data: data
+        });
+
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          paint: {
+            'line-color': '#a149ed',
+            'line-width': 8
+          }
+        });
+      })
+      .catch(err => {
+        console.error('Błąd wyznaczania trasy:', err);
+        alert('Błąd podczas pobierania trasy.');
+      });
     }
-    return res.json();
-  })
-  .then(data => {
-    if (map.getLayer('route')) map.removeLayer('route');
-    if (map.getSource('route')) map.removeSource('route');
-
-    map.addSource('route', {
-      type: 'geojson',
-      data: data
-    });
-
-    map.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      paint: {
-        'line-color': '#a149ed',
-        'line-width': 8
-      }
-    });
-  })
-  .catch(err => {
-    console.error('Błąd wyznaczania trasy:', err);
-    alert('Błąd podczas pobierania trasy.');
-  });
-}
-
   </script>
 </body>
 </html>
