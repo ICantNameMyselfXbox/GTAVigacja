@@ -1,129 +1,159 @@
-<!DOCTYPE html>  <html>  
-<head>  
-  <meta charset="utf-8" />  
-  <title>GTAVigacja</title>  
-  <meta name="viewport" content="width=device-width, initial-scale=1" />  
-  <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>  
-  <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />  
-  <style>  
-    body { margin: 0; padding: 0; }  
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }  
-  </style>  
-</head>  
-<body>  
-  <div id="map"></div>  
-  <img src="logo.png" style="position:absolute; bottom:10px; left:10px; width:200px;">    <script>  
-    const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';  
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GTAVigacja</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <img src="logo.png" style="position:absolute; bottom:10px; left:10px; width:200px;" />
   
-    const map = new maplibregl.Map({  
-      container: 'map',  
-      style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',  
-      center: [51.11, 15.58],  
-      zoom: 13  
-    });  
-  
-    map.addControl(new maplibregl.NavigationControl());  
-  
-    let start = null;  
-    let end = null;  
-    const markers = [];  
-  
-    map.on('load', () => {  
-      if (navigator.geolocation) {  
-        navigator.geolocation.getCurrentPosition(position => {  
-          start = [position.coords.longitude, position.coords.latitude];  
-          addMarker(start, 'start.png');  // Użyjemy 'start.png' jako ikony startowej  
-          map.setCenter(start);  
-        }, error => {  
-          alert('Nie udało się pobrać lokalizacji użytkownika.');  
-          console.error(error);  
-        });  
-      } else {  
-        alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');  
-      }  
-    });  
-  
-    map.on('click', function(e) {  
-      const coords = [e.lngLat.lng, e.lngLat.lat];  
-  
-      if (!start) {  
-        alert("Poczekaj na załadowanie lokalizacji użytkownika.");  
-        return;  
-      }  
-  
-      if (!end) {  
-        end = coords;  
-        addMarker(end, 'end.png');  // Użyjemy 'end.png' jako ikony docelowej  
-        getRoute(start, end);  
-      } else {  
-        clearMap();  
-        end = coords;  
-        addMarker(start, 'start.png');  // Startowy marker  
-        addMarker(end, 'end.png');  // Docelowy marker  
-        getRoute(start, end);  
-      }  
-    });  
-  
-    function addMarker(coords, iconFile) {  
-      const el = document.createElement('img');  
-      el.src = iconFile;  
-      el.style.width = '32px';  
-      el.style.height = '32px';  
-      el.style.objectFit = 'contain';  
-  
-      const marker = new maplibregl.Marker({ element: el }).setLngLat(coords).addTo(map);  
-      markers.push(marker);  
-    }  
-  
-    function clearMap() {  
-      markers.forEach(marker => marker.remove());  
-      markers.length = 0;  
-  
-      if (map.getLayer('route')) map.removeLayer('route');  
-      if (map.getSource('route')) map.removeSource('route');  
-    }  
-  
-    function getRoute(start, end) {
-  fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': ORS_API_KEY
-    },
-    body: JSON.stringify({
-      coordinates: [start, end]
-    })
-  })
-  .then(res => {
-    if (!res.ok) {
-      throw new Error(`Błąd ${res.status}: ${res.statusText}`);
-    }
-    return res.json();
-  })
-  .then(data => {
-    if (map.getLayer('route')) map.removeLayer('route');
-    if (map.getSource('route')) map.removeSource('route');
+  <script>
+    const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
 
-    map.addSource('route', {
-      type: 'geojson',
-      data: data
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
+      center: [51.11, 15.58],
+      zoom: 13
     });
 
-    map.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      paint: {
-        'line-color': '#a149ed',
-        'line-width': 8
+    map.addControl(new maplibregl.NavigationControl());
+
+    let start = null;
+    let end = null;
+    let startMarker = null;
+    const markers = [];
+
+    map.on('load', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+          position => {
+            start = [position.coords.longitude, position.coords.latitude];
+
+            if (!startMarker) {
+              const el = document.createElement('img');
+              el.src = 'start.png';
+              el.style.width = '32px';
+              el.style.height = '32px';
+              el.style.objectFit = 'contain';
+
+              startMarker = new maplibregl.Marker({ element: el })
+                .setLngLat(start)
+                .addTo(map);
+              markers.push(startMarker);
+              map.setCenter(start);
+            } else {
+              startMarker.setLngLat(start);
+            }
+          },
+          error => {
+            alert('Nie udało się pobrać lokalizacji użytkownika.');
+            console.error(error);
+          },
+          {
+            enableHighAccuracy: true,
+            maximumAge: 1000,
+            timeout: 5000
+          }
+        );
+      } else {
+        alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
       }
     });
-  })
-  .catch(err => {
-    console.error('Błąd wyznaczania trasy:', err);
-    alert('Błąd podczas pobierania trasy.');
-  });
-}
-  </script>  </body>  
-</html>  openrouteservice daje błąd 400, napraw to
 
+    map.on('click', function(e) {
+      const coords = [e.lngLat.lng, e.lngLat.lat];
+
+      if (!start) {
+        alert("Poczekaj na załadowanie lokalizacji użytkownika.");
+        return;
+      }
+
+      if (!end) {
+        end = coords;
+        addMarker(end, 'end.png');
+        getRoute(start, end);
+      } else {
+        clearMap();
+        end = coords;
+        addMarker(end, 'end.png');
+        if (startMarker) markers.push(startMarker);
+        getRoute(start, end);
+      }
+    });
+
+    function addMarker(coords, iconFile) {
+      const el = document.createElement('img');
+      el.src = iconFile;
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.objectFit = 'contain';
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat(coords)
+        .addTo(map);
+      markers.push(marker);
+    }
+
+    function clearMap() {
+      markers.forEach(marker => marker.remove());
+      markers.length = 0;
+
+      if (map.getLayer('route')) map.removeLayer('route');
+      if (map.getSource('route')) map.removeSource('route');
+
+      // startMarker is not removed to continue tracking
+    }
+
+    function getRoute(start, end) {
+      fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': ORS_API_KEY
+        },
+        body: JSON.stringify({
+          coordinates: [start, end]
+        })
+      })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`Błąd ${res.status}: ${res.statusText}`);
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (map.getLayer('route')) map.removeLayer('route');
+        if (map.getSource('route')) map.removeSource('route');
+
+        map.addSource('route', {
+          type: 'geojson',
+          data: data
+        });
+
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          paint: {
+            'line-color': '#a149ed',
+            'line-width': 8
+          }
+        });
+      })
+      .catch(err => {
+        console.error('Błąd wyznaczania trasy:', err);
+        alert('Błąd podczas pobierania trasy.');
+      });
+    }
+  </script>
+</body>
+</html>
