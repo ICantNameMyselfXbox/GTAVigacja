@@ -201,7 +201,10 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker) {
-        startMarker.getElement().style.transform = `rotate(${userOrientation}deg)`;
+        // Obracamy tylko obrazek strzałki bez zmiany pozycji
+        const el = startMarker.getElement();
+        el.style.transform = `rotate(${userOrientation}deg)`;
+        el.style.transformOrigin = 'center'; // Obracanie wokół środka
       }
     }
 
