@@ -45,8 +45,6 @@
 
     let destinationSet = false;
 
-    let lastInteractionTime = Date.now();
-
     map.on('load', () => {
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
@@ -98,6 +96,13 @@
           if (event.alpha !== null) {
             userOrientation = event.alpha;
             updateStartMarkerOrientation();
+            if (userPosition) {
+              map.easeTo({
+                center: userPosition,
+                bearing: userOrientation,
+                duration: 100
+              });
+            }
           }
         });
       }
@@ -122,23 +127,6 @@
         destinationSet = false;
       }
     });
-
-    map.on('dragstart', () => lastInteractionTime = Date.now());
-    map.on('zoomstart', () => lastInteractionTime = Date.now());
-    map.on('rotatestart', () => lastInteractionTime = Date.now());
-
-    setInterval(() => {
-      if (!userPosition) return;
-      const now = Date.now();
-      if (now - lastInteractionTime > 5000) {
-        map.easeTo({
-          center: userPosition,
-          bearing: userOrientation,
-          duration: 1000
-        });
-        lastInteractionTime = now;
-      }
-    }, 1000);
 
     function addMarker(coords, iconFile) {
       const el = document.createElement('img');
