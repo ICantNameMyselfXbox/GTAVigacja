@@ -48,7 +48,6 @@
               startMarker = new maplibregl.Marker({ element: el })
                 .setLngLat(start)
                 .addTo(map);
-              markers.push(startMarker);
               map.setCenter(start);
             } else {
               startMarker.setLngLat(start);
@@ -85,7 +84,6 @@
         clearMap();
         end = coords;
         addMarker(end, 'end.png');
-        if (startMarker) markers.push(startMarker);
         getRoute(start, end);
       }
     });
@@ -104,13 +102,12 @@
     }
 
     function clearMap() {
+      // Usuń tylko markery z tablicy (czyli NIE startMarker)
       markers.forEach(marker => marker.remove());
       markers.length = 0;
 
       if (map.getLayer('route')) map.removeLayer('route');
       if (map.getSource('route')) map.removeSource('route');
-
-      // startMarker is not removed to continue tracking
     }
 
     function getRoute(start, end) {
