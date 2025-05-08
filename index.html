@@ -9,12 +9,6 @@
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    .arrow-marker {
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-      transition: transform 0.1s ease-out; /* Płynny obrót */
-    }
   </style>
 </head>
 <body>
@@ -38,6 +32,7 @@
     let fullRouteCoords = null;
     const markers = [];
     let userOrientation = 0;
+    let userPosition = null;
 
     const RECONNECTION_DISTANCE = 50;
 
@@ -45,24 +40,27 @@
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition(
           position => {
-            start = [position.coords.longitude, position.coords.latitude];
+            userPosition = [position.coords.longitude, position.coords.latitude];
             if (!startMarker) {
               const el = document.createElement('img');
               el.src = 'start.png';
-              el.className = 'arrow-marker'; // Zmieniamy klasę na arrow-marker
+              el.style.width = '32px';
+              el.style.height = '32px';
+              el.style.objectFit = 'contain';
+              el.style.transition = 'transform 0.1s ease-out'; // Animacja obrotu
               startMarker = new maplibregl.Marker({ element: el })
-                .setLngLat(start)
+                .setLngLat(userPosition)
                 .addTo(map);
-              map.setCenter(start);
+              map.setCenter(userPosition);
             } else {
-              startMarker.setLngLat(start);
+              startMarker.setLngLat(userPosition);
             }
             if (fullRouteCoords && map.getSource('route')) {
-              const dist = calculateDistanceToRoute(start, fullRouteCoords);
+              const dist = calculateDistanceToRoute(userPosition, fullRouteCoords);
               if (dist > RECONNECTION_DISTANCE) {
-                getRoute(start, end);
+                getRoute(userPosition, end);
               } else {
-                const trimmed = trimRouteToCurrentPosition(start, fullRouteCoords);
+                const trimmed = trimRouteToCurrentPosition(userPosition, fullRouteCoords);
                 map.getSource('route').setData({
                   type: 'Feature',
                   geometry: { type: 'LineString', coordinates: trimmed }
@@ -97,7 +95,7 @@
 
     map.on('click', function(e) {
       const coords = [e.lngLat.lng, e.lngLat.lat];
-      if (!start) {
+      if (!userPosition) {
         alert("Poczekaj na załadowanie lokalizacji użytkownika.");
         return;
       }
@@ -105,12 +103,12 @@
       if (!end) {
         end = coords;
         addMarker(end, 'end.png');
-        getRoute(start, end);
+        getRoute(userPosition, end);
       } else {
         clearMap();
         end = coords;
         addMarker(end, 'end.png');
-        getRoute(start, end);
+        getRoute(userPosition, end);
       }
     });
 
@@ -173,10 +171,10 @@
     }
 
     function updateStartMarkerOrientation() {
-      if (startMarker) {
+      if (startMarker && userPosition) {
         const el = startMarker.getElement();
-        // Strzałka będzie obracała się o odpowiedni kąt (przywracamy kąt w zależności od orientacji urządzenia)
-        el.style.transform = `rotate(${360 - userOrientation}deg)`; // Obracamy o kąt urządzenia (w lewo)
+        // Obracamy strzałkę wokół jej osi w odpowiedzi na zmiany orientacji urządzenia
+        el.style.transform = `rotate(${360 - userOrientation}deg)`; // Obrót zgodnie z orientacją urządzenia
       }
     }
 
