@@ -99,7 +99,7 @@
             if (userPosition) {
               map.easeTo({
                 center: userPosition,
-                bearing: userOrientation,
+                bearing: -userOrientation, // Odwrócenie kąta orientacji
                 duration: 100
               });
             }
@@ -188,7 +188,7 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker && userPosition) {
-        startMarker.setRotation(-userOrientation);
+        startMarker.setRotation(userOrientation); // Obracamy zgodnie z urządzeniem
       }
     }
 
