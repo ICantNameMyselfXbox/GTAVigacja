@@ -173,7 +173,9 @@
     function updateStartMarkerOrientation() {
       if (startMarker && userPosition) {
         // Obracamy marker w zależności od orientacji urządzenia
-        startMarker.setRotation(userOrientation);
+        // Jeśli obracasz się w prawo (zgodnie z ruchem wskazówek zegara),
+        // zmieniamy kierunek obrotu (odwracamy kąt)
+        startMarker.setRotation(-userOrientation);
       }
     }
 
