@@ -173,7 +173,7 @@
     function updateStartMarkerOrientation() {
       if (startMarker && userPosition) {
         const el = startMarker.getElement();
-        // Obracamy strzałkę wokół jej osi w odpowiedzi na zmiany orientacji urządzenia
+        // Ustawiamy obrót strzałki w zależności od orientacji urządzenia
         el.style.transform = `rotate(${360 - userOrientation}deg)`; // Obrót zgodnie z orientacją urządzenia
       }
     }
