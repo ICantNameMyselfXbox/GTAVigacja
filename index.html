@@ -94,7 +94,8 @@
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
-            userOrientation = event.alpha;
+            // Odwracamy wartość kąta, aby mapa była zgodna z kierunkiem urządzenia
+            userOrientation = 360 - event.alpha; // Odwrócenie kąta
             updateStartMarkerOrientation();
             if (userPosition) {
               map.easeTo({
