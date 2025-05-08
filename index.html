@@ -11,8 +11,8 @@
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     #north-indicator {
       position: absolute;
-      width: 40px;
-      height: 40px;
+      width: 20px; /* Zmniejszenie szerokości o połowę */
+      height: 20px; /* Zmniejszenie wysokości o połowę */
       pointer-events: none;
       transition: left 0.1s linear, top 0.1s linear;
     }
@@ -99,7 +99,7 @@
             if (userPosition) {
               map.easeTo({
                 center: userPosition,
-                bearing: userOrientation, // Zmiana z -userOrientation na userOrientation
+                bearing: userOrientation,
                 duration: 100
               });
             }
@@ -188,7 +188,7 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker && userPosition) {
-        startMarker.setRotation(userOrientation); // Obracamy zgodnie z urządzeniem
+        startMarker.setRotation(userOrientation);
       }
     }
 
@@ -244,8 +244,8 @@
       x += dx * scale;
       y += dy * scale;
 
-      icon.style.left = `${x - 20}px`;
-      icon.style.top = `${y - 20}px`;
+      icon.style.left = `${x - 10}px`;  // Zmniejszenie o połowę (do 10px)
+      icon.style.top = `${y - 10}px`;   // Zmniejszenie o połowę (do 10px)
       icon.style.transform = 'rotate(0deg)';
     }
   </script>
