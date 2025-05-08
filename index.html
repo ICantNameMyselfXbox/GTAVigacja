@@ -99,7 +99,7 @@
             if (userPosition) {
               map.easeTo({
                 center: userPosition,
-                bearing: -userOrientation, // Odwrócenie kąta orientacji
+                bearing: userOrientation, // Zmiana z -userOrientation na userOrientation
                 duration: 100
               });
             }
