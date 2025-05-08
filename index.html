@@ -42,21 +42,21 @@
           start = [lng, lat];
 
           if (!userMarker) {
-            const el = document.createElement('img');
-            el.src = 'start.png';
-            el.style.width = '32px';
-            el.style.height = '32px';
-            el.style.objectFit = 'contain';
-            el.style.transformOrigin = 'center';
+  const el = document.createElement('img');
+  el.src = 'start.png';
+  el.style.width = '32px';
+  el.style.height = '32px';
+  el.style.objectFit = 'contain';
+  el.style.transformOrigin = 'center';
 
-            userMarker = new maplibregl.Marker({ element: el }).setLngLat(start).addTo(map);
-            map.setCenter(start);
-          } else {
-            userMarker.setLngLat(start);
-            if (!isNaN(heading)) {
-              userMarker.getElement().style.transform = `rotate(${heading}deg)`;
-            }
-          }
+  userMarker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(start).addTo(map);
+  map.setCenter(start);
+} else {
+  userMarker.setLngLat(start);
+  if (!isNaN(heading)) {
+    userMarker.getElement().style.transform = `translate(-50%, -50%) rotate(${heading}deg)`;
+  }
+}
         }, error => {
           alert('Nie udało się pobrać lokalizacji użytkownika.');
           console.error(error);
