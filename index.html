@@ -49,6 +49,7 @@
               el.style.width = '32px';
               el.style.height = '32px';
               el.style.objectFit = 'contain';
+              el.style.transformOrigin = 'center'; // Obrót wokół środka
 
               startMarker = new maplibregl.Marker({ element: el })
                 .setLngLat(start)
@@ -95,7 +96,8 @@
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
-            userOrientation = event.alpha;
+            // Zmieniamy orientację na wartość bardziej pasującą do mapy
+            userOrientation = (event.alpha + 180) % 360; // Zmiana obrotu na odpowiedni kierunek (180 stopni)
             updateStartMarkerOrientation();
           }
         });
@@ -201,10 +203,9 @@
 
     function updateStartMarkerOrientation() {
       if (startMarker) {
-        // Obracamy tylko obrazek strzałki bez zmiany pozycji
+        // Obracamy tylko obrazek strzałki wokół środka, bez zmiany pozycji
         const el = startMarker.getElement();
         el.style.transform = `rotate(${userOrientation}deg)`;
-        el.style.transformOrigin = 'center'; // Obracanie wokół środka
       }
     }
 
