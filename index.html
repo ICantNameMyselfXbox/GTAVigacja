@@ -158,9 +158,9 @@
 
     function updateNorthIndicator() {
       const icon = document.getElementById('north-indicator');
-      if (!icon || !userOrientation) return;
+      if (!icon || !userPosition) return;
 
-      const bearing = userOrientation; // Pobierz orientację użytkownika
+      const bearing = map.getBearing(); // Pobierz kąt orientacji mapy
       const angleRad = (-bearing) * Math.PI / 180;
       const w = window.innerWidth;
       const h = window.innerHeight;
