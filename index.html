@@ -1,254 +1,246 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-  <meta charset="utf-8" />
-  <title>GTAVigacja</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />
-  <style>
-    body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    #north-indicator {
-      position: absolute;
-      width: 20px; /* Zmniejszenie szerokości o połowę */
-      height: 20px; /* Zmniejszenie wysokości o połowę */
-      pointer-events: none;
-      transition: left 0.1s linear, top 0.1s linear;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <img src="logo.png" style="position:absolute; bottom:10px; left:10px; width:200px;" />
-  <img src="north.png" id="north-indicator" />
+<script>
+  const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
+  const map = new maplibregl.Map({
+    container: 'map',
+    style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
+    center: [51.11, 15.58],
+    zoom: 13
+  });
 
-  <script>
-    const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
-      center: [51.11, 15.58],
-      zoom: 13
-    });
+  map.addControl(new maplibregl.NavigationControl());
 
-    map.addControl(new maplibregl.NavigationControl());
+  let start = null;
+  let end = null;
+  let startMarker = null;
+  let endMarker = null;
+  let fullRouteCoords = null;
+  const markers = [];
+  let userOrientation = 0;
+  let userPosition = null;
+  const RECONNECTION_DISTANCE = 50; // meters
+  let destinationSet = false;
+  let followMode = false;
 
-    let start = null;
-    let end = null;
-    let startMarker = null;
-    let fullRouteCoords = null;
-    const markers = [];
-    let userOrientation = 0;
-    let userPosition = null;
-    const RECONNECTION_DISTANCE = 50;
+  map.on('load', () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        position => {
+          userPosition = [position.coords.longitude, position.coords.latitude];
 
-    let destinationSet = false;
-
-    map.on('load', () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(
-          position => {
-            userPosition = [position.coords.longitude, position.coords.latitude];
-            if (!startMarker) {
-              const el = document.createElement('img');
-              el.src = 'start.png';
-              el.style.width = '32px';
-              el.style.height = '32px';
-              el.style.objectFit = 'contain';
-              el.style.transition = 'transform 0.1s ease-out';
-              startMarker = new maplibregl.Marker({ element: el, rotationAlignment: 'map' })
-                .setLngLat(userPosition)
-                .addTo(map);
-              map.setCenter(userPosition);
-            } else {
-              startMarker.setLngLat(userPosition);
-            }
-            if (fullRouteCoords && map.getSource('route')) {
-              const dist = calculateDistanceToRoute(userPosition, fullRouteCoords);
-              if (dist > RECONNECTION_DISTANCE) {
-                getRoute(userPosition, end);
-              } else {
-                const trimmed = trimRouteToCurrentPosition(userPosition, fullRouteCoords);
-                map.getSource('route').setData({
-                  type: 'Feature',
-                  geometry: { type: 'LineString', coordinates: trimmed }
-                });
-              }
-            }
-          },
-          error => {
-            alert('Nie udało się pobrać lokalizacji użytkownika.');
-            console.error(error);
-          },
-          {
-            enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 5000
+          if (!startMarker) {
+            const el = document.createElement('img');
+            el.src = 'start.png';
+            el.style.width = '32px';
+            el.style.height = '32px';
+            el.style.objectFit = 'contain';
+            el.style.transition = 'transform 0.1s ease-out';
+            startMarker = new maplibregl.Marker({ element: el, rotationAlignment: 'map' })
+              .setLngLat(userPosition)
+              .addTo(map);
+            el.addEventListener('click', () => {
+              followMode = !followMode;
+            });
+            map.setCenter(userPosition);
+          } else {
+            startMarker.setLngLat(userPosition);
           }
-        );
-      } else {
-        alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
-      }
 
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', event => {
-          if (event.alpha !== null) {
-            // Odwracamy wartość kąta, aby mapa była zgodna z kierunkiem urządzenia
-            userOrientation = 360 - event.alpha; // Odwrócenie kąta
-            updateStartMarkerOrientation();
-            if (userPosition) {
-              map.easeTo({
-                center: userPosition,
-                bearing: userOrientation,
-                duration: 100
+          if (followMode && userPosition) {
+            map.easeTo({ center: userPosition, bearing: userOrientation, duration: 200 });
+          }
+
+          if (end && calculateDistance(userPosition, end) <= 20) {
+            if (endMarker) {
+              endMarker.remove();
+              endMarker = null;
+              destinationSet = false;
+              clearRoute();
+              alert('Dotarłeś do celu!');
+            }
+          }
+
+          if (fullRouteCoords && map.getSource('route')) {
+            const dist = calculateDistanceToRoute(userPosition, fullRouteCoords);
+            if (dist > RECONNECTION_DISTANCE) {
+              getRoute(userPosition, end);
+            } else {
+              const trimmed = trimRouteToCurrentPosition(userPosition, fullRouteCoords);
+              map.getSource('route').setData({
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: trimmed }
               });
             }
           }
-        });
-      }
-
-      setInterval(updateFloatingNorthIcon, 100);
-    });
-
-    map.on('click', function(e) {
-      if (!userPosition) {
-        alert("Poczekaj na załadowanie lokalizacji użytkownika.");
-        return;
-      }
-
-      if (!destinationSet) {
-        end = [e.lngLat.lng, e.lngLat.lat];
-        addMarker(end, 'end.png');
-        getRoute(userPosition, end);
-        destinationSet = true;
-      } else {
-        clearMap();
-        end = null;
-        destinationSet = false;
-      }
-    });
-
-    function addMarker(coords, iconFile) {
-      const el = document.createElement('img');
-      el.src = iconFile;
-      el.style.width = '32px';
-      el.style.height = '32px';
-      el.style.objectFit = 'contain';
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat(coords)
-        .addTo(map);
-      markers.push(marker);
-    }
-
-    function clearMap() {
-      markers.forEach(marker => {
-        if (marker !== startMarker) {
-          marker.remove();
+        },
+        error => {
+          alert('Nie udało się pobrać lokalizacji użytkownika.');
+          console.error(error);
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 1000,
+          timeout: 5000
         }
-      });
-      markers.length = 0;
-      if (map.getLayer('route')) map.removeLayer('route');
-      if (map.getSource('route')) map.removeSource('route');
-      fullRouteCoords = null;
-    }
-
-    function getRoute(start, end) {
-      fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-        body: JSON.stringify({ coordinates: [start, end] })
-      })
-      .then(res => {
-        if (!res.ok) { throw new Error(`Błąd ${res.status}: ${res.statusText}`); }
-        return res.json();
-      })
-      .then(data => {
-        fullRouteCoords = data.features[0].geometry.coordinates;
-        if (map.getLayer('route')) map.removeLayer('route');
-        if (map.getSource('route')) map.removeSource('route');
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: fullRouteCoords }
-          }
-        });
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          paint: { 'line-color': '#a149ed', 'line-width': 8 }
-        });
-      })
-      .catch(err => {
-        console.error('Błąd wyznaczania trasy:', err);
-        alert('Błąd podczas pobierania trasy.');
-      });
-    }
-
-    function updateStartMarkerOrientation() {
-      if (startMarker && userPosition) {
-        startMarker.setRotation(userOrientation);
-      }
-    }
-
-    function trimRouteToCurrentPosition(currentPos, coords) {
-      let minDist = Infinity;
-      let closestIndex = 0;
-      coords.forEach((coord, index) => {
-        const dx = coord[0] - currentPos[0];
-        const dy = coord[1] - currentPos[1];
-        const dist = dx * dx + dy * dy;
-        if (dist < minDist) {
-          minDist = dist;
-          closestIndex = index;
-        }
-      });
-      return coords.slice(closestIndex);
-    }
-
-    function calculateDistanceToRoute(currentPos, coords) {
-      let minDist = Infinity;
-      coords.forEach(coord => {
-        const dx = coord[0] - currentPos[0];
-        const dy = coord[1] - currentPos[1];
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < minDist) {
-          minDist = dist;
-        }
-      });
-      return minDist * 100000;
-    }
-
-    function updateFloatingNorthIcon() {
-      const icon = document.getElementById('north-indicator');
-      if (!icon) return;
-
-      const bearing = map.getBearing();
-      const angleRad = (-bearing) * Math.PI / 180;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      const dx = Math.sin(angleRad);
-      const dy = -Math.cos(angleRad);
-      const margin = 20;
-
-      let x = w / 2;
-      let y = h / 2;
-
-      const scale = Math.min(
-        Math.abs((w / 2 - margin) / dx || Infinity),
-        Math.abs((h / 2 - margin) / dy || Infinity)
       );
-
-      x += dx * scale;
-      y += dy * scale;
-
-      icon.style.left = `${x - 10}px`;  // Zmniejszenie o połowę (do 10px)
-      icon.style.top = `${y - 10}px`;   // Zmniejszenie o połowę (do 10px)
-      icon.style.transform = 'rotate(0deg)';
+    } else {
+      alert('Geolokalizacja nie jest wspierana przez Twoją przeglądarkę.');
     }
-  </script>
-</body>
-</html>
+
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', event => {
+        if (event.alpha !== null) {
+          userOrientation = 360 - event.alpha;
+          updateStartMarkerOrientation();
+        }
+      });
+    }
+
+    setInterval(updateFloatingNorthIcon, 100);
+  });
+
+  map.on('click', function(e) {
+    if (!userPosition) {
+      alert("Poczekaj na załadowanie lokalizacji użytkownika.");
+      return;
+    }
+
+    if (!destinationSet) {
+      end = [e.lngLat.lng, e.lngLat.lat];
+      endMarker = addMarker(end, 'end.png');
+      getRoute(userPosition, end);
+      destinationSet = true;
+    } else {
+      clearMap();
+    }
+  });
+
+  function addMarker(coords, iconFile) {
+    const el = document.createElement('img');
+    el.src = iconFile;
+    el.style.width = '32px';
+    el.style.height = '32px';
+    el.style.objectFit = 'contain';
+    const marker = new maplibregl.Marker({ element: el })
+      .setLngLat(coords)
+      .addTo(map);
+    markers.push(marker);
+    return marker;
+  }
+
+  function clearMap() {
+    markers.forEach(marker => marker.remove());
+    markers.length = 0;
+    if (endMarker) endMarker.remove();
+    endMarker = null;
+    destinationSet = false;
+    clearRoute();
+  }
+
+  function clearRoute() {
+    if (map.getLayer('route')) map.removeLayer('route');
+    if (map.getSource('route')) map.removeSource('route');
+    fullRouteCoords = null;
+  }
+
+  function getRoute(start, end) {
+    fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
+      body: JSON.stringify({ coordinates: [start, end] })
+    })
+    .then(res => {
+      if (!res.ok) { throw new Error(`Błąd ${res.status}: ${res.statusText}`); }
+      return res.json();
+    })
+    .then(data => {
+      fullRouteCoords = data.features[0].geometry.coordinates;
+      clearRoute();
+      map.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: fullRouteCoords }
+        }
+      });
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        paint: { 'line-color': '#a149ed', 'line-width': 8 }
+      });
+    })
+    .catch(err => {
+      console.error('Błąd wyznaczania trasy:', err);
+      alert('Błąd podczas pobierania trasy.');
+    });
+  }
+
+  function updateStartMarkerOrientation() {
+    if (startMarker && userPosition) {
+      startMarker.setRotation(userOrientation);
+    }
+  }
+
+  function trimRouteToCurrentPosition(currentPos, coords) {
+    let minDist = Infinity;
+    let closestIndex = 0;
+    coords.forEach((coord, index) => {
+      const dx = coord[0] - currentPos[0];
+      const dy = coord[1] - currentPos[1];
+      const dist = dx * dx + dy * dy;
+      if (dist < minDist) {
+        minDist = dist;
+        closestIndex = index;
+      }
+    });
+    return coords.slice(closestIndex);
+  }
+
+  function calculateDistanceToRoute(currentPos, coords) {
+    let minDist = Infinity;
+    coords.forEach(coord => {
+      const dx = coord[0] - currentPos[0];
+      const dy = coord[1] - currentPos[1];
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < minDist) {
+        minDist = dist;
+      }
+    });
+    return minDist * 111000; // approx conversion from degrees to meters
+  }
+
+  function calculateDistance(a, b) {
+    const dx = a[0] - b[0];
+    const dy = a[1] - b[1];
+    return Math.sqrt(dx * dx + dy * dy) * 111000;
+  }
+
+  function updateFloatingNorthIcon() {
+    const icon = document.getElementById('north-indicator');
+    if (!icon) return;
+
+    const bearing = map.getBearing();
+    const angleRad = (-bearing) * Math.PI / 180;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    const dx = Math.sin(angleRad);
+    const dy = -Math.cos(angleRad);
+    const margin = 20;
+
+    let x = w / 2;
+    let y = h / 2;
+
+    const scale = Math.min(
+      Math.abs((w / 2 - margin) / dx || Infinity),
+      Math.abs((h / 2 - margin) / dy || Infinity)
+    );
+
+    x += dx * scale;
+    y += dy * scale;
+
+    icon.style.left = `${x - 10}px`;
+    icon.style.top = `${y - 10}px`;
+    icon.style.transform = 'rotate(0deg)';
+  }
+</script>
