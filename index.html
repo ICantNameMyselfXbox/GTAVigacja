@@ -1,247 +1,133 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <title>GTAVigacja</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@3.3.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTA V Navigation</title>
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
   <style>
-    body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-    #north-indicator {
-      position: absolute;
-      width: 20px;
-      height: 20px;
-      pointer-events: none;
-      transition: left 0.1s linear, top 0.1s linear;
+    html, body, #map {
+      height: 100%;
+      margin: 0;
     }
-    #logo {
+    .icon-logo, .icon-north {
       position: absolute;
+      z-index: 1000;
+      cursor: pointer;
+    }
+    .icon-logo {
       bottom: 10px;
       left: 10px;
-      width: 200px;
-      cursor: pointer;
-      z-index: 1000;
+      width: 50px;
+    }
+    .icon-north {
+      top: 10px;
+      right: 10px;
+      width: 40px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <img src="logo.png" id="logo" />
-  <img src="north.png" id="north-indicator" />
+  <img src="logo.png" class="icon-logo" id="logo" />
+  <img src="north.png" class="icon-north" id="northIcon" />
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-rotatedmarker@0.2.0/leaflet.rotatedMarker.js"></script>
   <script>
-    const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
+    const map = L.map('map').setView([52.237049, 21.017532], 15);
+    let followMode = false;
+    let destinationMarker = null;
+    let routeLayer = null;
 
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
-      center: [15.58, 51.11],
-      zoom: 13
+    const tileLayer = L.tileLayer(`https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=xZ5mRqiLKIk5P0G37FF9`, {
+      attribution: '&copy; MapTiler & OpenStreetMap contributors'
+    }).addTo(map);
+
+    const userIcon = L.icon({
+      iconUrl: 'start.png',
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
     });
 
-    map.addControl(new maplibregl.NavigationControl());
+    const endIcon = L.icon({
+      iconUrl: 'end.png',
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
+    });
 
-    let startMarker = null;
-    let end = null;
-    let destinationSet = false;
-    let fullRouteCoords = null;
-    let userPosition = null;
-    let userOrientation = 0; // Orientacja użytkownika
-    const markers = [];
-    const RECONNECTION_DISTANCE = 50;
-    const ARRIVAL_DISTANCE = 20;
-    let followUser = false;
+    let userMarker = L.marker([0, 0], {
+      icon: userIcon,
+      rotationAngle: 0,
+      rotationOrigin: 'center center'
+    }).addTo(map);
+
+    function updateRoute(destLatLng) {
+      const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5`;
+      const body = {
+        coordinates: [
+          [userMarker.getLatLng().lng, userMarker.getLatLng().lat],
+          [destLatLng.lng, destLatLng.lat]
+        ]
+      };
+
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (routeLayer) map.removeLayer(routeLayer);
+        const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+        routeLayer = L.polyline(coords, { color: 'blue', weight: 5 }).addTo(map);
+      });
+    }
+
+    map.on('click', (e) => {
+      if (destinationMarker) {
+        map.removeLayer(destinationMarker);
+        if (routeLayer) map.removeLayer(routeLayer);
+        destinationMarker = null;
+        routeLayer = null;
+      } else {
+        destinationMarker = L.marker(e.latlng, { icon: endIcon }).addTo(map);
+        updateRoute(e.latlng);
+      }
+    });
 
     document.getElementById('logo').addEventListener('click', () => {
-      followUser = !followUser;
-      if (followUser && userPosition) {
-        map.easeTo({ center: userPosition, bearing: userOrientation, duration: 100 });
-      }
+      followMode = !followMode;
     });
 
-    function clearRoute() {
-      if (map.getLayer('route')) map.removeLayer('route');
-      if (map.getSource('route')) map.removeSource('route');
-      fullRouteCoords = null;
+    function onLocationFound(e) {
+      const lat = e.latitude;
+      const lng = e.longitude;
+      const heading = e.heading || 0;
+      userMarker.setLatLng([lat, lng]);
+      userMarker.setRotationAngle(heading);
+      if (followMode) {
+        map.setView([lat, lng]);
+        map.setBearing(heading); // Leaflet doesn't support bearing; skip rotation of map.
+      }
     }
 
-    function addMarker(coords, iconFile) {
-      const el = document.createElement('img');
-      el.src = iconFile;
-      el.style.width = '32px';
-      el.style.height = '32px';
-      el.style.objectFit = 'contain';
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat(coords)
-        .addTo(map);
-      markers.push(marker);
-      return marker;
+    function updateCompass(rotation) {
+      const northIcon = document.getElementById('northIcon');
+      northIcon.style.transform = `rotate(${-rotation}deg)`;
     }
 
-    function clearMap() {
-      markers.forEach(marker => {
-        if (marker !== startMarker) marker.remove();
-      });
-      markers.length = 0;
-      clearRoute();
-    }
-
-    function calculateDistance(a, b) {
-      const dx = a[0] - b[0];
-      const dy = a[1] - b[1];
-      return Math.sqrt(dx * dx + dy * dy) * 100000;
-    }
-
-    function trimRouteToCurrentPosition(currentPos, coords) {
-      let minDist = Infinity;
-      let closestIndex = 0;
-      coords.forEach((coord, index) => {
-        const dx = coord[0] - currentPos[0];
-        const dy = coord[1] - currentPos[1];
-        const dist = dx * dx + dy * dy;
-        if (dist < minDist) {
-          minDist = dist;
-          closestIndex = index;
-        }
-      });
-      return coords.slice(closestIndex);
-    }
-
-    function getRoute(start, end) {
-      fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': ORS_API_KEY
-        },
-        body: JSON.stringify({ coordinates: [start, end] })
-      })
-      .then(res => res.ok ? res.json() : Promise.reject(res.status))
-      .then(data => {
-        if (!data.features || data.features.length === 0) {
-          alert('Nie znaleziono trasy.');
-          return;
-        }
-        fullRouteCoords = data.features[0].geometry.coordinates;
-
-        clearRoute();
-
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: {
-              type: 'LineString',
-              coordinates: fullRouteCoords
-            }
-          }
-        });
-
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: {
-            'line-color': '#a149ed',
-            'line-width': 6
-          }
-        });
-      })
-      .catch(err => {
-        console.error('Błąd pobierania trasy:', err);
-        alert('Nie udało się pobrać trasy.');
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(position => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const heading = position.coords.heading || 0;
+        onLocationFound({ latitude: lat, longitude: lng, heading });
+        updateCompass(heading);
+      }, null, {
+        enableHighAccuracy: true
       });
     }
-
-    function updateOrientation() {
-      if (followUser && userOrientation !== null && userPosition) {
-        map.rotateTo(userOrientation, { duration: 200 }); // Obrót mapy
-        map.easeTo({ center: userPosition, duration: 200 });
-      }
-    }
-
-    map.on('load', () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.watchPosition(
-          position => {
-            userPosition = [position.coords.longitude, position.coords.latitude];
-
-            if (!startMarker) {
-              const el = document.createElement('img');
-              el.src = 'start.png';
-              el.style.width = '32px';
-              el.style.height = '32px';
-              el.style.objectFit = 'contain';
-              startMarker = new maplibregl.Marker({ element: el, rotationAlignment: 'map' })
-                .setLngLat(userPosition)
-                .addTo(map);
-            } else {
-              startMarker.setLngLat(userPosition);
-            }
-
-            if (followUser) {
-              map.easeTo({ 
-                center: userPosition, 
-                bearing: userOrientation, 
-                duration: 100 
-              });
-            }
-
-            if (fullRouteCoords && map.getSource('route')) {
-              const dist = calculateDistance(userPosition, end);
-              if (dist < ARRIVAL_DISTANCE) {
-                clearMap();
-                destinationSet = false;
-              } else if (calculateDistance(userPosition, fullRouteCoords[0]) > RECONNECTION_DISTANCE) {
-                getRoute(userPosition, end);
-              } else {
-                const trimmed = trimRouteToCurrentPosition(userPosition, fullRouteCoords);
-                map.getSource('route').setData({
-                  type: 'Feature',
-                  geometry: { type: 'LineString', coordinates: trimmed }
-                });
-              }
-            }
-          },
-          err => {
-            console.error('Błąd GPS:', err);
-            alert('Nie można uzyskać lokalizacji.');
-          },
-          { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
-        );
-      }
-
-      if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', event => {
-          if (event.alpha !== null) {
-            userOrientation = 360 - event.alpha; // Orientacja użytkownika
-            if (startMarker) startMarker.setRotation(userOrientation); // Obrót markera startowego
-          }
-        });
-      }
-
-      setInterval(updateOrientation, 100); // Aktualizujemy orientację mapy co 100 ms
-    });
-
-    map.on('click', e => {
-      if (!userPosition) {
-        alert("Poczekaj na lokalizację GPS.");
-        return;
-      }
-
-      if (!destinationSet) {
-        end = [e.lngLat.lng, e.lngLat.lat];
-        addMarker(end, 'end.png');
-        getRoute(userPosition, end);
-        destinationSet = true;
-      } else {
-        clearMap();
-        destinationSet = false;
-      }
-    });
   </script>
 </body>
 </html>
