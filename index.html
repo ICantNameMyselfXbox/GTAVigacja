@@ -146,34 +146,55 @@
     }
 
     function getRoute(start, end) {
-      fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': ORS_API_KEY },
-        body: JSON.stringify({ coordinates: [start, end] })
-      })
-      .then(res => res.json())
-      .then(data => {
-        fullRouteCoords = data.features[0].geometry.coordinates;
-        clearRoute();
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: fullRouteCoords }
-          }
-        });
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          paint: { 'line-color': '#a149ed', 'line-width': 8 }
-        });
-      })
-      .catch(err => {
-        console.error('Błąd trasy:', err);
-        alert('Błąd podczas pobierania trasy.');
-      });
-    }
+  fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': ORS_API_KEY
+    },
+    body: JSON.stringify({ coordinates: [start, end] })
+  })
+  .then(res => {
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    return res.json();
+  })
+  .then(data => {
+    fullRouteCoords = data.features[0].geometry.coordinates;
+
+    clearRoute();
+
+    map.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: fullRouteCoords
+          },
+          properties: {}
+        }]
+      }
+    });
+
+    map.addLayer({
+      id: 'route',
+      type: 'line',
+      source: 'route',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': '#a149ed',
+        'line-width': 6
+      }
+    });
+  })
+  .catch(err => {
+    console.error('Błąd wyznaczania trasy:', err);
+    alert('Nie udało się pobrać trasy. Sprawdź połączenie lub API key.');
+  });
+}
+
 
     function clearRoute() {
       if (map.getLayer('route')) map.removeLayer('route');
