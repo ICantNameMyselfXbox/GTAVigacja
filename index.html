@@ -48,7 +48,7 @@
     let destinationSet = false;
     let fullRouteCoords = null;
     let userPosition = null;
-    let userOrientation = 0;
+    let userOrientation = 0; // Orientacja użytkownika
     const markers = [];
     const RECONNECTION_DISTANCE = 50;
     const ARRIVAL_DISTANCE = 20;
@@ -200,7 +200,12 @@
             }
 
             if (followUser) {
-              map.easeTo({ center: userPosition, bearing: userOrientation, duration: 100 });
+              // W trybie śledzenia, mapa podąża za użytkownikiem i obraca się zgodnie z jego orientacją
+              map.easeTo({ 
+                center: userPosition, 
+                bearing: userOrientation, 
+                duration: 100 
+              });
             }
 
             if (fullRouteCoords && map.getSource('route')) {
@@ -230,8 +235,8 @@
       if (window.DeviceOrientationEvent) {
         window.addEventListener('deviceorientation', event => {
           if (event.alpha !== null) {
-            userOrientation = 360 - event.alpha;
-            if (startMarker) startMarker.setRotation(userOrientation);
+            userOrientation = 360 - event.alpha; // Orientacja użytkownika
+            if (startMarker) startMarker.setRotation(userOrientation); // Obrót markera startowego
           }
         });
       }
