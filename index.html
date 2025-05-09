@@ -16,11 +16,19 @@
       pointer-events: none;
       transition: left 0.1s linear, top 0.1s linear;
     }
+    #logo {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      width: 200px;
+      cursor: pointer;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <img src="logo.png" style="position:absolute; bottom:10px; left:10px; width:200px;" />
+  <img src="logo.png" id="logo" />
   <img src="north.png" id="north-indicator" />
 
   <script>
@@ -44,6 +52,14 @@
     const markers = [];
     const RECONNECTION_DISTANCE = 50;
     const ARRIVAL_DISTANCE = 20;
+    let followUser = false;
+
+    document.getElementById('logo').addEventListener('click', () => {
+      followUser = !followUser;
+      if (followUser && userPosition) {
+        map.easeTo({ center: userPosition, bearing: userOrientation, duration: 100 });
+      }
+    });
 
     function clearRoute() {
       if (map.getLayer('route')) map.removeLayer('route');
@@ -142,9 +158,9 @@
 
     function updateNorthIndicator() {
       const icon = document.getElementById('north-indicator');
-      if (!icon) return;
+      if (!icon || !userOrientation) return;
 
-      const bearing = map.getBearing();
+      const bearing = userOrientation; // Pobierz orientację użytkownika
       const angleRad = (-bearing) * Math.PI / 180;
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -176,12 +192,15 @@
               el.style.width = '32px';
               el.style.height = '32px';
               el.style.objectFit = 'contain';
-              el.style.cursor = 'pointer';
               startMarker = new maplibregl.Marker({ element: el, rotationAlignment: 'map' })
                 .setLngLat(userPosition)
                 .addTo(map);
             } else {
               startMarker.setLngLat(userPosition);
+            }
+
+            if (followUser) {
+              map.easeTo({ center: userPosition, bearing: userOrientation, duration: 100 });
             }
 
             if (fullRouteCoords && map.getSource('route')) {
