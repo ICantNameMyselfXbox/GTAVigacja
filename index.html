@@ -156,28 +156,11 @@
       });
     }
 
-    function updateNorthIndicator() {
-      const icon = document.getElementById('north-indicator');
-      if (!icon || !userPosition) return;
-
-      const bearing = map.getBearing(); // Pobierz kąt orientacji mapy
-      const angleRad = (-bearing) * Math.PI / 180;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const dx = Math.sin(angleRad);
-      const dy = -Math.cos(angleRad);
-      const margin = 20;
-      let x = w / 2;
-      let y = h / 2;
-      const scale = Math.min(
-        Math.abs((w / 2 - margin) / dx || Infinity),
-        Math.abs((h / 2 - margin) / dy || Infinity)
-      );
-      x += dx * scale;
-      y += dy * scale;
-
-      icon.style.left = `${x - 10}px`;
-      icon.style.top = `${y - 10}px`;
+    function updateOrientation() {
+      if (followUser && userOrientation !== null && userPosition) {
+        map.rotateTo(userOrientation, { duration: 200 }); // Dynamicznie obracamy mapę
+        map.easeTo({ center: userPosition, duration: 200 });
+      }
     }
 
     map.on('load', () => {
@@ -200,7 +183,6 @@
             }
 
             if (followUser) {
-              // W trybie śledzenia, mapa podąża za użytkownikiem i obraca się zgodnie z jego orientacją
               map.easeTo({ 
                 center: userPosition, 
                 bearing: userOrientation, 
@@ -241,7 +223,7 @@
         });
       }
 
-      setInterval(updateNorthIndicator, 100);
+      setInterval(updateOrientation, 100); // Wywołujemy update co 100ms, aby mapa była na bieżąco
     });
 
     map.on('click', e => {
