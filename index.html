@@ -24,7 +24,7 @@
   <img src="north.png" id="north-indicator" />
 
   <script>
-    const ORS_API_KEY = '5b3ce3597851110001cf6248520be3a021e74f8e9115cb380f5c5a7d';
+    const ORS_API_KEY = '5b3ce3597851110001cf62483ac4f0d3ed6f4364838102a41d9258c5';
     const map = new maplibregl.Map({
       container: 'map',
       style: 'https://api.maptiler.com/maps/0196a9ff-ca5a-72a8-b5e3-71deec7a5e00/style.json?key=xZ5mRqiLKIk5P0G37FF9',
@@ -52,7 +52,6 @@
     }
 
     function getRoute(start, end) {
-      console.log('Pobieranie trasy:', start, end);
       fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
         method: 'POST',
         headers: {
@@ -62,19 +61,10 @@
         body: JSON.stringify({ coordinates: [start, end] })
       })
       .then(res => {
-        if (!res.ok) {
-          console.error('Błąd API:', res.status, res.statusText);
-          throw new Error(`API error ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`API error ${res.status}`);
         return res.json();
       })
       .then(data => {
-        console.log('Dane z ORS:', data);
-        if (!data.features || data.features.length === 0) {
-          alert('Brak możliwej trasy.');
-          return;
-        }
-
         fullRouteCoords = data.features[0].geometry.coordinates;
 
         clearRoute();
@@ -200,11 +190,6 @@
               startMarker.setLngLat(userPosition);
             }
 
-            if (followArrow && userPosition) {
-              map.setBearing(userOrientation);
-              map.setCenter(userPosition);
-            }
-
             if (fullRouteCoords && map.getSource('route')) {
               const dist = calculateDistance(userPosition, end);
               if (dist < ARRIVAL_DISTANCE) {
@@ -231,6 +216,9 @@
           if (event.alpha !== null) {
             userOrientation = 360 - event.alpha;
             if (startMarker) startMarker.setRotation(userOrientation);
+            if (followArrow && userPosition) {
+              map.easeTo({ center: userPosition, bearing: userOrientation, duration: 100 });
+            }
           }
         });
       }
