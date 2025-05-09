@@ -158,7 +158,7 @@
 
     function updateOrientation() {
       if (followUser && userOrientation !== null && userPosition) {
-        map.rotateTo(userOrientation, { duration: 200 }); // Dynamicznie obracamy mapę
+        map.rotateTo(userOrientation, { duration: 200 }); // Obrót mapy
         map.easeTo({ center: userPosition, duration: 200 });
       }
     }
@@ -223,7 +223,7 @@
         });
       }
 
-      setInterval(updateOrientation, 100); // Wywołujemy update co 100ms, aby mapa była na bieżąco
+      setInterval(updateOrientation, 100); // Aktualizujemy orientację mapy co 100 ms
     });
 
     map.on('click', e => {
